@@ -15,6 +15,7 @@ export interface ISettings {
     cwd: string;
     workspace: string;
     args: string[];
+    enabled: boolean;
     severity: Record<string, string>;
     path: string[];
     ignorePatterns: string[];
@@ -115,6 +116,7 @@ export async function getWorkspaceSettings(
         cwd: getCwd(config, workspace),
         workspace: workspace.uri.toString(),
         args: resolveVariables(config.get<string[]>('args', []), workspace),
+        enabled: config.get<boolean>('enabled', true),
         severity: config.get<Record<string, string>>('severity', DEFAULT_SEVERITY),
         path: resolveVariables(config.get<string[]>('path', []), workspace, interpreter),
         ignorePatterns: resolveVariables(config.get<string[]>('ignorePatterns', []), workspace),
@@ -148,6 +150,7 @@ export async function getGlobalSettings(namespace: string, includeInterpreter?: 
         cwd: getGlobalValue<string>(config, 'cwd', process.cwd()),
         workspace: process.cwd(),
         args: getGlobalValue<string[]>(config, 'args', []),
+        enabled: getGlobalValue<boolean>(config, 'enabled', true),
         severity: getGlobalValue<Record<string, string>>(config, 'severity', DEFAULT_SEVERITY),
         path: getGlobalValue<string[]>(config, 'path', []),
         ignorePatterns: getGlobalValue<string[]>(config, 'ignorePatterns', []),
@@ -165,6 +168,7 @@ export function checkIfConfigurationChanged(e: ConfigurationChangeEvent, namespa
     const settings = [
         `${namespace}.args`,
         `${namespace}.cwd`,
+        `${namespace}.enabled`,
         `${namespace}.severity`,
         `${namespace}.path`,
         `${namespace}.interpreter`,

@@ -209,6 +209,12 @@ def _linting_helper(document: workspace.Document) -> None:
         # deep copy here to prevent accidentally updating global settings.
         settings = copy.deepcopy(_get_settings_by_document(document))
 
+        if not settings["enabled"]:
+            log_warning(f"Skipping file [Linting Disabled]: {document.path}")
+            log_warning("See `flake8.enabled` in settings.json to enabling linting.")
+            _clear_diagnostics(document)
+            return None
+
         if str(document.uri).startswith("vscode-notebook-cell"):
             # We don't support running mypy on notebook cells.
             log_warning(f"Skipping notebook cells [Not Supported]: {str(document.uri)}")
@@ -488,6 +494,7 @@ def _get_global_defaults():
         "path": GLOBAL_SETTINGS.get("path", []),
         "interpreter": GLOBAL_SETTINGS.get("interpreter", [sys.executable]),
         "args": GLOBAL_SETTINGS.get("args", []),
+        "enabled": GLOBAL_SETTINGS.get("enabled", True),
         "severity": GLOBAL_SETTINGS.get(
             "severity",
             {

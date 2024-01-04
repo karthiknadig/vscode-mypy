@@ -912,3 +912,111 @@ def test_diagnostics_missing_column():
     }
 
     assert_that(actual, is_(expected))
+
+
+@pytest.mark.parametrize("enabled", (True, False))
+def test_enabled_setting(enabled):
+    """Test to ensure enabled setting is honored."""
+    contents = TEST_FILE_PATH.read_text(encoding="utf-8")
+
+    actual = []
+    with session.LspSession() as ls_session:
+        default_init = defaults.vscode_initialize_defaults()
+        init_options = default_init["initializationOptions"]
+        init_options["settings"][0]["enabled"] = enabled
+        ls_session.initialize(default_init)
+
+        done = Event()
+
+        def _handler(params):
+            nonlocal actual
+            actual = params
+            done.set()
+
+        def _log_handler(params):
+            print(params)
+
+        ls_session.set_notification_callback(session.WINDOW_LOG_MESSAGE, _log_handler)
+        ls_session.set_notification_callback(session.PUBLISH_DIAGNOSTICS, _handler)
+
+        ls_session.notify_did_open(
+            {
+                "textDocument": {
+                    "uri": TEST_FILE_URI,
+                    "languageId": "python",
+                    "version": 1,
+                    "text": contents,
+                }
+            }
+        )
+
+        # wait for some time to receive all notifications
+        assert done.wait(TIMEOUT), "Timed out waiting for diagnostics"
+
+    if enabled:
+        expected = {
+            "uri": TEST_FILE_URI,
+            "diagnostics": [
+                {
+                    "range": {
+                        "start": {"line": 2, "character": 6},
+                        "end": {
+                            "line": 2,
+                            "character": 7,
+                        },
+                    },
+                    "message": 'Name "x" is not defined',
+                    "severity": 1,
+                    "code": "name-defined",
+                    "codeDescription": {
+                        "href": "https://mypy.readthedocs.io/en/latest/_refs.html#code-name-defined"
+                    },
+                    "source": "Mypy",
+                },
+                {
+                    "range": {
+                        "start": {"line": 6, "character": 21},
+                        "end": {
+                            "line": 6,
+                            "character": 33,
+                        },
+                    },
+                    "message": 'Argument 1 of "__eq__" is incompatible with supertype "object"; supertype defines the argument type as "object"',
+                    "severity": 1,
+                    "code": "override",
+                    "codeDescription": {
+                        "href": "https://mypy.readthedocs.io/en/latest/_refs.html#code-override"
+                    },
+                    "source": "Mypy",
+                },
+                {
+                    "range": {
+                        "start": {"line": 6, "character": 21},
+                        "end": {
+                            "line": 6,
+                            "character": 33,
+                        },
+                    },
+                    "message": """This violates the Liskov substitution principle
+See https://mypy.readthedocs.io/en/stable/common_issues.html#incompatible-overrides
+It is recommended for "__eq__" to work with arbitrary objects, for example:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Foo):
+            return NotImplemented
+        return <logic to compare two Foo instances>""",
+                    "severity": 3,
+                    "code": "note",
+                    "codeDescription": {
+                        "href": "https://mypy.readthedocs.io/en/stable/common_issues.html#incompatible-overrides"
+                    },
+                    "source": "Mypy",
+                },
+            ],
+        }
+    else:
+        expected = {
+            "uri": TEST_FILE_URI,
+            "diagnostics": [],
+        }
+
+    assert_that(actual, is_(expected))
